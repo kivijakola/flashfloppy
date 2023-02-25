@@ -1861,7 +1861,11 @@ static void raw_setup_track(
 
     track = cyl*2 + side;
     if (track != im->cur_track)
+    {
+        if(im->a_or_b)
+            cyl+=(im->nr_cyls/2);
         raw_seek_track(im, track, cyl, side);
+    }
 
     im->img.write_sector = -1;
 
@@ -2216,6 +2220,8 @@ static uint8_t *init_track_map(struct image *im)
     p = align_p(sec_map);
     im->img.sec_info_base = p;
     im->img.trk_info = p;
+
+    im->a_or_b = 0;
 
     check_p(p, im);
 

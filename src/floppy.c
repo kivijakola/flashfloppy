@@ -607,7 +607,7 @@ static void drive_step_timer(void *_drv)
         /* nothing to do, IRQ_soft() needs to reset our deadline */
         break;
     case STEP_latched:
-        speaker_pulse();
+        //speaker_pulse();
         drv->cyl += drv->step.inward ? 1 : -1;
         timer_set(&drv->step.timer,
                   drv->step.start + time_ms(ff_cfg.head_settle_ms));

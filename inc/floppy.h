@@ -207,6 +207,7 @@ struct image {
     };
 
     struct slot *slot;
+    volatile uint32_t a_or_b;
 };
 
 static inline struct write *get_write(struct image *im, uint16_t idx)

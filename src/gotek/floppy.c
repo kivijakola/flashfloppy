@@ -17,7 +17,7 @@
 #define pin_dir     0 /* PB0 */
 #define pin_step    1 /* PA1 */
 #define pin_sel0    0 /* PA0 */
-#define pin_sel1    3 /* PA3 */
+#define pin_sel1    2 /* PA2 */
 static uint8_t pin_wgate = 9; /* PB9 */
 #define pin_side    4 /* PB4 */
 static uint8_t pin_motor = 15; /* PA15 or PB15 */
@@ -49,13 +49,15 @@ DEFINE_IRQ(dma_rdata_irq, "IRQ_rdata_dma");
 /* EXTI IRQs. */
 void IRQ_6(void) __attribute__((alias("IRQ_SELA_changed"))); /* EXTI0 */
 void IRQ_7(void) __attribute__((alias("IRQ_WGATE_rotary"))); /* EXTI1 */
+void IRQ_8(void) __attribute__((alias("IRQ_SELA_changed"))); /* EXTI2 */
 void IRQ_10(void) __attribute__((alias("IRQ_SIDE_changed"))); /* EXTI4 */
 void IRQ_23(void) __attribute__((alias("IRQ_WGATE_rotary"))); /* EXTI9_5 */
 void IRQ_28(void) __attribute__((alias("IRQ_STEP_changed"))); /* TMR2 */
 void IRQ_40(void) __attribute__((alias("IRQ_MOTOR_CHGRST_rotary"))); /* EXTI15_10 */
 #define MOTOR_CHGRST_IRQ 40
 static const struct exti_irq exti_irqs[] = {
-    /* SELA */ {  6, FLOPPY_IRQ_SEL_PRI, 0 }, 
+    /* SELA */ {  6, FLOPPY_IRQ_SEL_PRI, 0 },
+    /* SELB */ {  8, FLOPPY_IRQ_SEL_PRI, 0 },
     /* STEP */ { 28, FLOPPY_IRQ_STEP_PRI, m(2) /* dummy */ },
     /* WGATE */ {  7, FLOPPY_IRQ_WGATE_PRI, 0 },
     /* SIDE */ { 10, TIMER_IRQ_PRI, 0 }, 
@@ -154,14 +156,15 @@ static void board_floppy_init(void)
     gpio_configure_pin(gpiob, pin_wgate, GPI_bus);
     gpio_configure_pin(gpiob, pin_side,  GPI_bus);
 
-    /* PA[15:13], PB[12], PC[11:10], PB[9:1], PA[0] */
+    /* PA[15:13], PB[12], PC[11:10], PB[9:1], PA[0], PA[2]*/
     afio->exticr[4-1] = 0x0001;
     afio->exticr[3-1] = 0x2211;
     afio->exticr[2-1] = 0x1111;
-    afio->exticr[1-1] = 0x1110;
+    afio->exticr[1-1] = 0x1010;
+
+    gpio_configure_pin(gpioa, pin_sel1,  GPI_pull_up);
 
     if (gotek_enhanced()) {
-        gpio_configure_pin(gpioa, pin_sel1,  GPI_bus);
         gpio_configure_pin(gpioa, pin_motor, GPI_bus);
     } else if (has_kc30_header == 2) {
         pin_motor = 12; /* PB12 */
@@ -175,7 +178,7 @@ static void board_floppy_init(void)
 
     exti->rtsr = 0xffff;
     exti->ftsr = 0xffff;
-    exti->imr = m(pin_wgate) | m(pin_side) | m(pin_sel0);
+    exti->imr = m(pin_wgate) | m(pin_side) | m(pin_sel0) | m(pin_sel1);
 
     gpiob_setreset = (uint32_t)&gpiob->bsrr;
 }
@@ -225,9 +228,33 @@ static void _IRQ_SELA_changed(uint32_t _gpio_out_active)
 {
     /* Latch SELA. */
     exti->pr = m(pin_sel0);
-    drive.sel = !(gpioa->idr & m(pin_sel0));
+    exti->pr = m(pin_sel1);
+    drive.sel = (!(gpioa->idr & (m(pin_sel0)))|| !(gpioa->idr & (m(pin_sel1)))) ;
+
 
     if (drive.sel) {
+        if(gpioa->idr & (m(pin_sel0)))
+        {
+            if(drive.image->a_or_b !=0)
+            {
+                drive.image->cur_track = 0xfff;
+                rdata_stop();
+                wdata_stop();
+
+            }
+            drive.image->a_or_b = 0;
+        }
+        else
+        {
+            if(drive.image->a_or_b !=1)
+            {
+
+                drive.image->cur_track = 0xfff;
+                rdata_stop();
+                wdata_stop();
+            }
+            drive.image->a_or_b = 1;
+        }
         /* SELA is asserted (this drive is selected). 
          * Immediately re-enable all our asserted outputs. */
         gpiob->brr = _gpio_out_active & 0xffff;
@@ -300,7 +327,7 @@ static void IRQ_STEP_changed(void)
     (void)tim2->ccr2;
 
     /* Bail if drive not selected. */
-    if (idr_a & m(pin_sel0))
+    if ((idr_a & m(pin_sel0)) && (idr_a & m(pin_sel1)))
         return;
 
     /* Deassert DSKCHG if a disk is inserted. */
@@ -369,7 +396,7 @@ static void IRQ_WGATE(void)
         return;
 
     if ((gpiob->idr & m(pin_wgate))      /* WGATE off? */
-        || (gpioa->idr & m(pin_sel0))) { /* Not selected? */
+        || ((gpioa->idr & m(pin_sel0)) && (gpioa->idr & m(pin_sel1)))) { /* Not selected? */
         wdata_stop();
     } else {
         rdata_stop();

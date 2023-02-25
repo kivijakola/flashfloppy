@@ -2708,10 +2708,10 @@ static int floppy_main(void *unused)
             b = B_SELECT;
         } else {
             floppy_arena_teardown();
-            speaker_notify_insert(cfg.slot_nr);
+            //speaker_notify_insert(cfg.slot_nr);
             fres = F_call_cancellable(run_floppy, &b);
             floppy_cancel();
-            speaker_notify_eject();
+            //speaker_notify_eject();
             assert_volume_connected();
             if ((b != 0) && (display_type == DT_LCD_OLED)) {
                 /* Immediate visual indication of button press. */
@@ -3205,7 +3205,7 @@ int main(void)
     printk("Build: %s %s\n", build_date, build_time);
     printk("Board: %s\n", board_name[board_id]);
 
-    speaker_init();
+    //speaker_init();
 
     flash_ff_cfg_read();
 
