@@ -238,8 +238,7 @@ static void _IRQ_SELA_changed(uint32_t _gpio_out_active)
             if(drive.image->a_or_b !=0)
             {
                 drive.image->cur_track = 0xfff;
-                rdata_stop();
-                wdata_stop();
+
 
             }
             drive.image->a_or_b = 0;
@@ -250,8 +249,6 @@ static void _IRQ_SELA_changed(uint32_t _gpio_out_active)
             {
 
                 drive.image->cur_track = 0xfff;
-                rdata_stop();
-                wdata_stop();
             }
             drive.image->a_or_b = 1;
         }

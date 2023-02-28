@@ -519,7 +519,10 @@ static bool_t dma_rd_handle(struct drive *drv)
         /* fall through */
 
     case DMA_active:
-        floppy_read_data(drv);
+        if(drive->image->cur_track>256)//disk select changed
+            rdata_stop();
+        else
+            floppy_read_data(drv);
         break;
 
     case DMA_stopping:
