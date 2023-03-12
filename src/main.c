@@ -35,7 +35,7 @@ static struct {
     struct short_slot autoboot;
     struct short_slot hxcsdfe;
     struct short_slot imgcfg;
-    struct slot slot, clipboard;
+    struct slot slot, slot2, clipboard;
     uint32_t cfg_cdir, cur_cdir;
     struct native_dirent **sorted;
     struct {
@@ -1931,10 +1931,29 @@ indexed_mode:
         } else {
             memset(&cfg.slot, 0, sizeof(cfg.slot));
         }
+
+        /* Index mode: populate current slot. */
+        snprintf(name, sizeof(name), "%s%04u*.*",
+                 "DSKB", cfg.slot_nr);
+        printk("[%s]\n", name);
+        F_findfirst(&fs->dp, &fs->fp, "", name);
+        F_closedir(&fs->dp);
+        if (fs->fp.fname[0]) {
+            /* Found a valid image. */
+            F_open(&fs->file, fs->fp.fname, FA_READ);
+            fs->file.obj.attr = fs->fp.fattrib;
+            fatfs_to_slot(&cfg.slot2, &fs->file, fs->fp.fname);
+            F_close(&fs->file);
+        } else {
+            memset(&cfg.slot2, 0, sizeof(cfg.slot));
+        }
     }
 
     for (i = 0; i < sizeof(cfg.slot.type); i++)
+    {
         cfg.slot.type[i] = tolower(cfg.slot.type[i]);
+        cfg.slot2.type[i] = tolower(cfg.slot2.type[i]);
+    }
 }
 
 /* Always updates cfg.slot info for current slot_nr. Additionally:
@@ -2119,7 +2138,7 @@ static int run_floppy(void *_b)
     time_t t_now, t_prev, t_diff;
     int32_t update_ticks;
 
-    floppy_insert(0, &cfg.slot);
+    floppy_insert(0, &cfg.slot, &cfg.slot2);
 
     led_7seg_update_track(TRUE);
 

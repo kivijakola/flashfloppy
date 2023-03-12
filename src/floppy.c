@@ -332,7 +332,7 @@ void floppy_init(void)
     motor_chgrst_setup_exti();
 }
 
-void floppy_insert(unsigned int unit, struct slot *slot)
+void floppy_insert(unsigned int unit, struct slot *slot, struct slot *slot2)
 {
     struct image *im;
     struct drive *drv = &drive;
@@ -340,7 +340,7 @@ void floppy_insert(unsigned int unit, struct slot *slot)
     /* Report only significant prefetch times (> 10ms). */
     max_prefetch_us = 10000;
 
-    floppy_mount(slot);
+    floppy_mount(slot, slot2);
     im = image;
 
     if (im->write_bc_ticks < sampleclk_ns(1500))
@@ -519,7 +519,7 @@ static bool_t dma_rd_handle(struct drive *drv)
         /* fall through */
 
     case DMA_active:
-        if(drive->image->cur_track>256)//disk select changed
+        if(drive.image->cur_track>256)//disk select changed
             rdata_stop();
         else
             floppy_read_data(drv);

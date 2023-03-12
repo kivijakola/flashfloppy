@@ -242,6 +242,7 @@ static void _IRQ_SELA_changed(uint32_t _gpio_out_active)
 
             }
             drive.image->a_or_b = 0;
+            drive.image->fp = &drive.image->filesp[0];
         }
         else
         {
@@ -251,6 +252,7 @@ static void _IRQ_SELA_changed(uint32_t _gpio_out_active)
                 drive.image->cur_track = 0xfff;
             }
             drive.image->a_or_b = 1;
+            drive.image->fp = &drive.image->filesp[1];
         }
         /* SELA is asserted (this drive is selected). 
          * Immediately re-enable all our asserted outputs. */

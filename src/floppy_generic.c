@@ -136,15 +136,15 @@ static struct dma_ring *dma_ring_alloc(void)
 
 /* Allocate floppy resources and mount the given image. 
  * On return: dma_rd, dma_wr, image and index are all valid. */
-static void floppy_mount(struct slot *slot)
+static void floppy_mount(struct slot *slot, struct slot *slot2)
 {
     struct image *im;
     struct dma_ring *_dma_rd, *_dma_wr;
     struct drive *drv = &drive;
-    FSIZE_t fastseek_sz;
-    DWORD *cltbl;
-    FRESULT fr;
-    int max_ring_kb = (ram_kb >= 128) ? 64 : (ram_kb >= 64) ? 32 : 8;
+    FSIZE_t fastseek_sz, fastseek_sz2;
+    DWORD *cltbl,  *cltbl2;
+    FRESULT fr, fr2;
+    int max_ring_kb = (ram_kb >= 128) ? 64 : (ram_kb >= 64) ? 32 : 4;
 
     do {
 
@@ -157,17 +157,21 @@ static void floppy_mount(struct slot *slot)
         memset(im, 0, sizeof(*im));
 
         /* Create a fast-seek cluster table for the image. */
-#define MAX_FILE_FRAGS 511 /* up to a 4kB cluster table */
+#define MAX_FILE_FRAGS 255 /* up to a ??kB cluster table */
         cltbl = arena_alloc(0);
         *cltbl = (MAX_FILE_FRAGS + 1) * 2;
-        fatfs_from_slot(&im->fp, slot, FA_READ);
-        fastseek_sz = f_size(&im->fp);
+
+
+        im->fp = &im->filesp[0];
+
+        fatfs_from_slot(im->fp, slot, FA_READ);
+        fastseek_sz = f_size(im->fp);
         if (fastseek_sz == 0) {
             /* Empty or dummy file. */
             cltbl = NULL;
         } else {
-            im->fp.cltbl = cltbl;
-            fr = f_lseek(&im->fp, CREATE_LINKMAP);
+            im->fp->cltbl = cltbl;
+            fr = f_lseek(im->fp, CREATE_LINKMAP);
             printk("Fast Seek: %u frags\n", (*cltbl / 2) - 1);
             if (fr == FR_OK) {
                 DWORD *_cltbl = arena_alloc(*cltbl * 4);
@@ -179,6 +183,40 @@ static void floppy_mount(struct slot *slot)
                 F_die(fr);
             }
         }
+
+        cltbl2 = arena_alloc(0);
+
+        if(slot2->size)
+        {
+
+            cltbl2 = arena_alloc(0);
+            *cltbl2 = (MAX_FILE_FRAGS + 1) * 2;
+
+            im->fp = &im->filesp[1];
+
+            fatfs_from_slot(im->fp, slot2, FA_READ);
+            fastseek_sz2 = f_size(im->fp);
+            if (fastseek_sz2 == 0) {
+                /* Empty or dummy file. */
+                cltbl2 = NULL;
+            } else {
+                im->fp->cltbl = cltbl2;
+                fr2 = f_lseek(im->fp, CREATE_LINKMAP);
+                printk("Fast Seek: %u frags\n", (*cltbl2 / 2) - 1);
+                if (fr2 == FR_OK) {
+                    DWORD *_cltbl;
+                    _cltbl = arena_alloc(*cltbl2 * 4);
+                    ASSERT(_cltbl == cltbl2);
+                } else if (fr2 == FR_NOT_ENOUGH_CORE) {
+                    printk("Fast Seek2: FAILED\n");
+                    cltbl2 = NULL;
+                } else {
+                    printk("die2\n");
+                }
+            }
+
+        }
+
 
         /* ~0 avoids sync match within fewer than 32 bits of scan start. */
         im->write_bc_window = ~0;
@@ -213,7 +251,16 @@ static void floppy_mount(struct slot *slot)
         ASSERT(im->bufs.read_data.len >= 10*1024);
 
         /* Mount the image file. */
+
+        im->fp = &im->filesp[0];
         image_open(im, slot, cltbl);
+        if(slot2->size)
+        {
+            im->fp = &im->filesp[1];
+            image_open(im, slot2, cltbl2);
+            im->fp = &im->filesp[0];
+        }
+
         if (!im->disk_handler->write_track || volume_readonly())
             slot->attributes |= AM_RDO;
         if (slot->attributes & AM_RDO) {
@@ -222,12 +269,12 @@ static void floppy_mount(struct slot *slot)
             image_extend(im);
         }
 
-    } while (f_size(&im->fp) != fastseek_sz);
+    } while (f_size(im->fp) != fastseek_sz);
 
     /* After image is extended at mount time, we permit no further changes 
      * to the file metadata. Clear the dirent info to ensure this. */
-    im->fp.dir_ptr = NULL;
-    im->fp.dir_sect = 0;
+    im->fp->dir_ptr = NULL;
+    im->fp->dir_sect = 0;
 
     _dma_rd->state = DMA_stopping;
 
@@ -534,7 +581,7 @@ static bool_t dma_wr_handle(struct drive *drv)
         im->bufs.write_bc.cons = (write->bc_end + 31) & ~31;
 
         /* Sync back to mass storage. */
-        F_sync(&im->fp);
+        F_sync(im->fp);
 
         IRQ_global_disable();
         /* Consume the write from the pipeline buffer. */

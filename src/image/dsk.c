@@ -74,7 +74,7 @@ static bool_t dsk_open(struct image *im)
     ASSERT(im->bufs.read_data.p == im->bufs.write_data.p);
 
     /* Read the Disk Information Block. */
-    F_read(&im->fp, dib, 256, NULL);
+    F_read(im->fp, dib, 256, NULL);
 
     /* Check the header signature. */
     if (!strncmp(dib->sig, "MV - CPC", 8)) {
@@ -137,8 +137,8 @@ static void dsk_seek_track(
     }
 
     /* Read the Track Info Block and Sector Info Blocks. */
-    F_lseek(&im->fp, im->dsk.trk_off);
-    F_read(&im->fp, tib, 256, NULL);
+    F_lseek(im->fp, im->dsk.trk_off);
+    F_read(im->fp, tib, 256, NULL);
     im->dsk.trk_off += 256;
     if (strncmp(tib->sig, "Track-Info", 10) || !tib->nr_secs)
         goto unformatted;
@@ -311,8 +311,8 @@ static bool_t dsk_read_track(struct image *im)
                 im->dsk.rev++;
             }
         }
-        F_lseek(&im->fp, im->dsk.trk_off + off);
-        F_read(&im->fp, buf, len, NULL);
+        F_lseek(im->fp, im->dsk.trk_off + off);
+        F_read(im->fp, buf, len, NULL);
         rd->prod++;
     }
 
@@ -549,14 +549,14 @@ static bool_t dsk_write_track(struct image *im)
 
             for (i = off = 0; i < sec_nr; i++)
                 off += tib->sib[i].actual_length;
-            F_lseek(&im->fp, im->dsk.trk_off + off);
+            F_lseek(im->fp, im->dsk.trk_off + off);
 
             for (todo = sec_sz; todo != 0; todo -= nr) {
                 nr = min_t(unsigned int, todo, 1024);
                 mfm_ring_to_bin(buf, bufmask, c, wrbuf, nr);
                 c += nr;
                 crc = crc16_ccitt(wrbuf, nr, crc);
-                F_write(&im->fp, wrbuf, nr, NULL);
+                F_write(im->fp, wrbuf, nr, NULL);
             }
 
             printk("%u us\n", time_diff(t, time_now()) / TIME_MHZ);

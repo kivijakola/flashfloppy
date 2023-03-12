@@ -33,7 +33,7 @@ static uint32_t amigados_checksum(void *dat, unsigned int bytes)
 
 static bool_t adf_open(struct image *im)
 {
-    if ((f_size(&im->fp) % (2*11*512)) || (f_size(&im->fp) == 0))
+    if ((f_size(im->fp) % (2*11*512)) || (f_size(im->fp) == 0))
         return FALSE;
 
     im->nr_sides = 2;
@@ -42,7 +42,7 @@ static bool_t adf_open(struct image *im)
     im->ticks_per_cell = ((sampleclk_stk(im->stk_per_rev) * 16u)
                           / im->tracklen_bc);
 
-    im->nr_cyls = f_size(&im->fp) / (2 * 11 * 512);
+    im->nr_cyls = f_size(im->fp) / (2 * 11 * 512);
 
     if (im->nr_cyls > 90) {
         /* HD image: twice as many sectors per track, same data rate. */
@@ -124,8 +124,8 @@ static bool_t adf_read_track(struct image *im)
 
     if (rd->prod == rd->cons) {
         unsigned int sector = im->adf.sec_map[hd][im->adf.sec_idx];
-        F_lseek(&im->fp, im->adf.trk_off + sector * sec_sz);
-        F_read(&im->fp, buf, sec_sz, NULL);
+        F_lseek(im->fp, im->adf.trk_off + sector * sec_sz);
+        F_read(im->fp, buf, sec_sz, NULL);
         rd->prod++;
         im->adf.sec_idx++;
         if (im->adf.sec_idx >= im->adf.nr_secs)
@@ -227,8 +227,8 @@ static void write_batch(struct image *im, unsigned int sect, unsigned int nr)
 
     t = time_now();
     printk("Write %u/%u-%u... ", im->cur_track, sect, sect+nr-1);
-    F_lseek(&im->fp, im->adf.trk_off + sect*512);
-    F_write(&im->fp, wrbuf, 512*nr, NULL);
+    F_lseek(im->fp, im->adf.trk_off + sect*512);
+    F_write(im->fp, wrbuf, 512*nr, NULL);
     printk("%u us\n", time_diff(t, time_now()) / TIME_MHZ);
 }
 

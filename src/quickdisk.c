@@ -143,9 +143,9 @@ void floppy_init(void)
     timer_init(&index.timer, index_assert, NULL);
 }
 
-void floppy_insert(unsigned int unit, struct slot *slot)
+void floppy_insert(unsigned int unit, struct slot *slot, struct slot *slot2)
 {
-    floppy_mount(slot);
+    floppy_mount(slot, slot2);
 
     timer_dma_init();
     tim_rdata->ccr2 = sampleclk_ns(1500); /* RD: 1.5us positive pulses */
